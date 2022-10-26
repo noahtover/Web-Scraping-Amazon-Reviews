@@ -1,9 +1,12 @@
+packages <- c('rvest', 'dplyr', 'stringr', 'ggplot2', 'purrr', 'zoo')
+install.packages(packages)
 library(rvest)
 library(dplyr)
 library(stringr)
 library(httr)
 library(ggplot2)
 library(purrr)
+library(zoo)
 # This program scrapes and plots amazon reviews with their ratings. I plan on using it to discover if there is a relationship between revenue reports and the previous quarters change in total reviews. 
 # This program could also potentially be used to approximate an individual products sales under the assumption that the actions of reviewers are representative of the population. 
 # Define total # of review pages
@@ -39,12 +42,17 @@ length(dates_only)
 df <- data.frame(ratings_unlisted, dates_only)
 # Plot ratings throughout time
 ggplot(df, aes(x = dates_only, y = ratings_unlisted, color = ratings_unlisted)) +
-  geom_point()
+  geom_point() + ggtitle('Monster ratings throughout time') + xlab('Date') + ylab('Rating')
 # Count # ratings each month and plot
 df_by_month <- df %>% 
-  mutate(month_year = format(df$dates_only, '%Y, %m')) %>%
+  mutate(month_year = format(df$dates_only, '%Y-%m')) %>%
   group_by(month_year) %>%
   arrange(month_year) %>%
-  count()
-
-ggplot(df_by_month, aes(x = df_by_month$month_year, y = df_by_month$n)) + geom_point()
+  count() %>%
+  mutate(yearmon = as.yearmon(month_year))
+ggplot(df_by_month, aes(x = df_by_month$yearmon, y = df_by_month$n)) + geom_line() + ggtitle('Total Monthly Amazon Reviews for Monster') + xlab('Month/Year') + ylab('Total Reviews') + scale_x_yearmon(format = '%b %y', n = 10) 
+# Get monster prices
+getSymbols('MNST', from = '2016-01-01', periodicity = 'monthly')
+plot(Cl(MNST))
+# Visually, there seems to be a relationship between amazon reviews and monster prices. This is most notable from Jan 2020 - Jan 2021 where there was a rally in MNST and a huge increase in reviews. 
+# To confirm my hypothesis, I need to check the correlation between revenue and monster reviews. 
