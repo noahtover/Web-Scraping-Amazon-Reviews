@@ -1,0 +1,50 @@
+library(rvest)
+library(dplyr)
+library(stringr)
+library(httr)
+library(ggplot2)
+library(purrr)
+# This program scrapes and plots amazon reviews with their ratings. I plan on using it to discover if there is a relationship between revenue reports and the previous quarters change in total reviews. 
+# This program could also potentially be used to approximate an individual products sales under the assumption that the actions of reviewers are representative of the population. 
+# Define total # of review pages
+total_pages = 1:179 # automate this by dividing total reviews/ 10(reviews / page) and round up if not whole number
+total_pages <- as.character(total_pages)
+url <- paste0('https://www.amazon.com/Monster-Energy-Drink-Green-Original/product-reviews/B019AKA6YU/ref=cm_cr_arp_d_viewopt_rvwer?ie=UTF8&reviewerType=avp_only_reviews&pageNumber=',total_pages)
+## Etiquette 
+set_config(add_headers(`User-Agent` = 'Hello! Im scraping Amazon Reviews. You can reach me at noahtover123@gmail.com'))
+slowly_readhtml <- slowly(~ read_html(.), rate = rate_delay(3))
+## Get product ratings and the date of each.
+ratings <- lapply(X = url, slowly_readhtml) %>%
+  lapply(html_elements, 'div#cm_cr-review_list  i.a-icon.a-icon-star.review-rating') %>%
+  lapply(html_text)
+ratings
+dates <- lapply(url, slowly_readhtml) %>%
+  lapply(html_elements, 'div#cm_cr-review_list span.review-date') %>%
+  lapply(html_text)
+
+# Take dates out of list so we can get dates as individual strings
+unlisted_dates <- unlist(dates)
+## To do: Save as html for later use!
+dates_only <- lapply(X = unlisted_dates, FUN = word, -3:-1) %>%
+  lapply(FUN = paste, collapse = ' ')
+dates_only <- cbind(dates_only)
+dates_only <- as.character(dates_only)
+dates_only <- as.Date(dates_only, format = '%B %d, %Y')
+ratings_only <- lapply(X = ratings, FUN = word) %>%
+  sapply(as.numeric)
+ratings_unlisted <- unlist(ratings_only)
+ratings_unlisted
+length(dates_only)
+## Create data frame of ratings and dates
+df <- data.frame(ratings_unlisted, dates_only)
+# Plot ratings throughout time
+ggplot(df, aes(x = dates_only, y = ratings_unlisted, color = ratings_unlisted)) +
+  geom_point()
+# Count # ratings each month and plot
+df_by_month <- df %>% 
+  mutate(month_year = format(df$dates_only, '%Y, %m')) %>%
+  group_by(month_year) %>%
+  arrange(month_year) %>%
+  count()
+
+ggplot(df_by_month, aes(x = df_by_month$month_year, y = df_by_month$n)) + geom_point()
